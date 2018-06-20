@@ -4,8 +4,8 @@ import os
 import shutil
 
 CC=["riscv64-unknown-elf-gcc"]
-CFLAGS=["-mcmodel=medany", "-Wall", "-O2", "-fno-common", "-fno-builtin-printf"]
-LDFLAGS=["-T", "link.ld", "-static", "-nostdlib", "-nostartfiles", "-lgcc"]
+CFLAGS=["-mcmodel=medany", "-Wall", "-O2", "-fno-common", "-fno-builtin-printf", "-Icommon/"]
+LDFLAGS=["-T", "common/link.ld", "-static", "-nostdlib", "-nostartfiles", "-lgcc"]
 
 def compile(source_name, target_name, macros):
     macro_flags = ["-D{}={}".format(name, macros[name]) for name in macros]
@@ -46,8 +46,8 @@ def main():
     server_macs = all_macs[args.num_pairs:]
     client_macs = all_macs[:args.num_pairs]
 
-    compile("crt.S", "testbuild/crt.o", {})
-    compile("syscalls.c", "testbuild/syscalls.o", {})
+    compile("common/crt.S", "testbuild/crt.o", {})
+    compile("common/syscalls.c", "testbuild/syscalls.o", {})
 
     end_cycle = (args.num_pairs + 1) * args.cycle_step
     server_wait = args.num_pairs * args.cycle_step
@@ -57,14 +57,14 @@ def main():
         SERVER_BASE = "testbuild/bw-test-server-{}".format(i + args.num_pairs)
         CLIENT_BASE = "testbuild/bw-test-client-{}".format(i)
         compile(
-            "bw-test-server.c",
+            "bw-test/server.c",
             SERVER_BASE + ".o",
             {"CLIENT_MACADDR": mac_to_hex(client_mac),
              "NPACKETS": args.num_packets,
              "PACKET_WORDS": args.packet_words,
              "END_CYCLE": ltoa(end_cycle + server_wait)})
         compile(
-            "bw-test-client.c",
+            "bw-test/client.c",
             CLIENT_BASE + ".o",
             {"SERVER_MACADDR": mac_to_hex(server_mac),
              "NPACKETS": args.num_packets,
@@ -75,12 +75,6 @@ def main():
 
         link([SERVER_BASE + ".o", "testbuild/crt.o", "testbuild/syscalls.o"], SERVER_BASE + ".riscv")
         link([CLIENT_BASE + ".o", "testbuild/crt.o", "testbuild/syscalls.o"], CLIENT_BASE + ".riscv")
-
-    compile("latency-test.c", "testbuild/latency-test.o", {})
-    link(["testbuild/latency-test.o",
-          "testbuild/crt.o",
-          "testbuild/syscalls.o"],
-          "testbuild/latency-test.riscv")
 
 if __name__ == "__main__":
     main()
