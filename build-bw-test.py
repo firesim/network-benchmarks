@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import os
 import shutil
+import random
 
 CC=["riscv64-unknown-elf-gcc"]
 CFLAGS=["-mcmodel=medany", "-Wall", "-O2", "-fno-common", "-fno-builtin-printf", "-Icommon/"]
@@ -53,9 +54,15 @@ def main():
     server_wait = args.num_pairs * args.cycle_step
     client_wait = server_wait + 2 * args.cycle_step
 
-    for (i, (server_mac, client_mac)) in enumerate(zip(server_macs, client_macs)):
-        SERVER_BASE = "testbuild/bw-test-server-{}".format(i + args.num_pairs)
-        CLIENT_BASE = "testbuild/bw-test-client-{}".format(i)
+    client_server = list(range(args.num_pairs, 2 * args.num_pairs))
+    random.shuffle(client_server)
+
+    for (client_id, client_mac) in enumerate(client_macs):
+        server_id = client_server[client_id]
+        server_mac = all_macs[server_id]
+        SERVER_BASE = "testbuild/bw-test-server-{}".format(server_id)
+        CLIENT_BASE = "testbuild/bw-test-client-{}".format(client_id)
+        print("Client {} to Server {}".format(client_id, server_id))
         compile(
             "bw-test/server.c",
             SERVER_BASE + ".o",
@@ -69,7 +76,7 @@ def main():
             {"SERVER_MACADDR": mac_to_hex(server_mac),
              "NPACKETS": args.num_packets,
              "PACKET_WORDS": args.packet_words,
-             "START_CYCLE": ltoa((i + 1) * args.cycle_step),
+             "START_CYCLE": ltoa((client_id + 1) * args.cycle_step),
              "END_CYCLE": ltoa(end_cycle),
              "WAIT_CYCLES": ltoa(client_wait)})
 
