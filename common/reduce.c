@@ -10,7 +10,7 @@ static long send_id, recv_id;
 static int noutstanding;
 static int inflight[MAX_OUTSTANDING];
 
-static int process_recv(uint64_t srcmac, int n)
+static int send_acks(uint64_t srcmac, int n)
 {
 	long nbytes = 0;
 	uint64_t dstmac;
@@ -37,7 +37,14 @@ static int process_recv(uint64_t srcmac, int n)
 	return nbytes;
 }
 
-static inline long recv_packets(uint64_t srcmac, int n)
+static int complete_acks(int n)
+{
+	for (int i = 0; i < n; i++)
+		nic_complete_send();
+	noutstanding -= n;
+}
+
+static inline void recv_packets(uint64_t srcmac, int n)
 {
 	long nbytes = 0;
 	int nout = n;
@@ -48,53 +55,71 @@ static inline long recv_packets(uint64_t srcmac, int n)
 		recv_id++;
 	}
 
-	while (nout > 0) {
-		int counts = nic_counts();
-		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
-		int to_process = (recv_comp < nout) ? recv_comp : nout;
-
-		nbytes += process_recv(srcmac, to_process);
-		nout -= to_process;
-	}
-
-	nout = n;
-	while (nout > 0) {
-		int counts = nic_counts();
-		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
-
-		for (int i = 0; i < send_comp; i++) {
-			nic_complete_send();
-			nout--;
-		}
-
-
-	}
-
-	return nbytes;
+	noutstanding += n;
 }
 
-uint64_t recv_data_loop(uint64_t srcmac, long nbytes, long npackets)
+long send_packets(int npackets, long bytes_left)
+{
+	long nbytes = 0;
+
+	for (int i = 0; i < npackets; i++) {
+		int j = send_id % MAX_OUTSTANDING;
+		long to_send = (bytes_left < PACKET_BYTES) ? bytes_left : PACKET_BYTES;
+
+		if (inflight[j] || noutstanding >= MAX_OUTSTANDING)
+			break;
+
+		nic_post_recv((uint64_t) in_packets[j]);
+		nic_post_send((uint64_t) out_packets[j], to_send);
+		inflight[j] = 1;
+		noutstanding++;
+		bytes_left -= to_send;
+		send_id++;
+	}
+
+	return bytes_left;
+}
+
+uint64_t recv_data_loop(uint64_t srcmac, long nbytes)
 {
 	long bytes_left = nbytes;
+	long npackets = (nbytes - 1) / PACKET_BYTES + 1;
 	uint64_t dstmac;
 	int j;
 
 	send_id = 0;
 	recv_id = 0;
+	noutstanding = 0;
 
 	while (recv_id < npackets) {
-		int send_req, recv_req;
-
+		int counts = nic_counts();
+		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
+		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
+		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
+		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 		int pkts_left = npackets - recv_id;
-		int n = (pkts_left < MAX_OUTSTANDING) ? pkts_left : MAX_OUTSTANDING;
+		int can_post = MAX_OUTSTANDING - noutstanding;
 
-		do {
-			int counts = nic_counts();
-			send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
-			recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
-		} while (send_req < n && recv_req < n);
+		int to_post = (pkts_left < recv_req) ? pkts_left : recv_req;
+		int to_ack = (send_req < recv_comp) ? send_req : recv_comp;
 
-		bytes_left -= recv_packets(srcmac, n);
+		if (can_post < to_post)
+			to_post = can_post;
+
+		bytes_left -= send_acks(srcmac, to_ack);
+		complete_acks(send_comp);
+		recv_packets(srcmac, to_post);
+	}
+
+	while (noutstanding > 0) {
+		int counts = nic_counts();
+		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
+		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
+		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
+		int to_ack = (send_req < recv_comp) ? send_req : recv_comp;
+
+		bytes_left -= send_acks(srcmac, to_ack);
+		complete_acks(send_comp);
 	}
 
 	j = (recv_id - 1) % MAX_OUTSTANDING;
@@ -103,7 +128,7 @@ uint64_t recv_data_loop(uint64_t srcmac, long nbytes, long npackets)
 	return dstmac;
 }
 
-static void process_recv_comp(int n)
+static void process_ack(int n)
 {
 	asm volatile ("fence");
 	for (int j = 0; j < n; j++) {
@@ -121,49 +146,50 @@ static void process_recv_comp(int n)
 void send_data_loop(uint64_t srcmac, uint64_t dstmac, long nbytes)
 {
 	long bytes_left = nbytes;
+	long npackets = (nbytes - 1) / PACKET_BYTES + 1;
 
 	send_id = 0;
 	recv_id = 0;
+	noutstanding = 0;
 
-	while (bytes_left > 0) {
+	for (int i = 0; i < MAX_OUTSTANDING; i++) {
+		out_packets[i][0] = dstmac << 16;
+		out_packets[i][1] = srcmac | (ETHTYPE << 48);
+		out_packets[i][2] = i;
+	}
+
+	asm volatile ("fence");
+
+	while (send_id < npackets) {
 		int counts = nic_counts();
 		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
 		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
 		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
-		int i = send_id % MAX_OUTSTANDING;
-		long to_send = (bytes_left < PACKET_BYTES) ? bytes_left : PACKET_BYTES;
+
+		int req_avail = (send_req < recv_req) ? send_req : recv_req;
+		int pkts_left = npackets - send_id;
+		int npkt_to_send = (pkts_left < req_avail) ? pkts_left : req_avail;
 
 		for (int j = 0; j < send_comp; j++)
 			nic_complete_send();
 
 		if (recv_comp > 0)
-			process_recv_comp(recv_comp);
+			process_ack(recv_comp);
 
-		if (send_req == 0 || recv_req == 0)
-			continue;
-
-		if (inflight[i] || noutstanding >= MAX_OUTSTANDING)
-			continue;
-
-		out_packets[i][0] = dstmac << 16;
-		out_packets[i][1] = srcmac | (ETHTYPE << 48);
-		out_packets[i][2] = send_id;
-		asm volatile ("fence");
-
-		nic_post_recv((uint64_t) in_packets[i]);
-		nic_post_send((uint64_t) out_packets[i], to_send);
-		inflight[i] = 1;
-		noutstanding++;
-		bytes_left -= to_send;
+		bytes_left = send_packets(npkt_to_send, bytes_left);
 	}
 
 	while (noutstanding > 0) {
 		int counts = nic_counts();
+		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
 
+		for (int j = 0; j < send_comp; j++)
+			nic_complete_send();
+
 		if (recv_comp > 0)
-			process_recv_comp(recv_comp);
+			process_ack(recv_comp);
 	}
 }
 

@@ -15,4 +15,4 @@ static inline uint64_t macaddr_reverse(uint64_t macaddr)
 
 uint64_t macaddr_add(uint64_t macaddr, int inc);
 void send_data_loop(uint64_t srcmac, uint64_t dstmac, long nbytes);
-uint64_t recv_data_loop(uint64_t srcmac, long nbytes, long npackets);
+uint64_t recv_data_loop(uint64_t srcmac, long nbytes);

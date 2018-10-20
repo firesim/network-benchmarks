@@ -8,7 +8,6 @@
 #include "reduce.h"
 
 //#define NBYTES (2 * 1024L * 1024L * 1024L)
-#define NPACKETS ((NBYTES - 1) / PACKET_BYTES + 1)
 
 static void distribute_data(uint64_t srcmac)
 {
@@ -27,7 +26,7 @@ static void collect_data(uint64_t srcmac)
 	for (int i = 0; i < NCOMPUTE; i++) {
 		dstmac = macaddr_add(srcmac, i+1);
 		send_data_loop(srcmac, dstmac, 24);
-		recv_data_loop(srcmac, NBYTES, NPACKETS);
+		recv_data_loop(srcmac, NBYTES);
 	}
 }
 
@@ -50,7 +49,6 @@ int main(void)
 	printf("start test\n");
 
 	for (int i = 0; i < NROUNDS; i++) {
-		printf("Round %d\n", i);
 		distribute_data(srcmac);
 		collect_data(srcmac);
 	}
