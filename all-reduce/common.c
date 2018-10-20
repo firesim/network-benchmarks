@@ -50,7 +50,7 @@ static inline long recv_packets(uint64_t srcmac, int n)
 
 	while (nout > 0) {
 		int counts = nic_counts();
-		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xf;
+		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
 		int to_process = (recv_comp < nout) ? recv_comp : nout;
 
 		nbytes += process_recv(srcmac, to_process);
@@ -60,7 +60,7 @@ static inline long recv_packets(uint64_t srcmac, int n)
 	nout = n;
 	while (nout > 0) {
 		int counts = nic_counts();
-		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & 0xf;
+		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 
 		for (int i = 0; i < send_comp; i++) {
 			nic_complete_send();
@@ -84,8 +84,8 @@ uint64_t recv_data_loop(uint64_t srcmac, long nbytes, long npackets)
 
 	while (recv_id < npackets) {
 		int counts = nic_counts();
-		int send_req = (counts >> NIC_COUNT_SEND_REQ) & 0xf;
-		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & 0xf;
+		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
+		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
 		int pkts_left = npackets - recv_id;
 		int n = MAX_OUTSTANDING;
 
@@ -129,10 +129,10 @@ void send_data_loop(uint64_t srcmac, uint64_t dstmac, long nbytes)
 
 	while (bytes_left > 0) {
 		int counts = nic_counts();
-		int send_req = (counts >> NIC_COUNT_SEND_REQ) & 0xf;
-		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & 0xf;
-		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & 0xf;
-		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xf;
+		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
+		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
+		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
+		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
 		int i = send_id % MAX_OUTSTANDING;
 		long to_send = (bytes_left < PACKET_BYTES) ? bytes_left : PACKET_BYTES;
 
@@ -162,7 +162,7 @@ void send_data_loop(uint64_t srcmac, uint64_t dstmac, long nbytes)
 
 	while (noutstanding > 0) {
 		int counts = nic_counts();
-		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xf;
+		int recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
 
 		if (recv_comp > 0)
 			process_recv_comp(recv_comp);
@@ -173,21 +173,9 @@ uint64_t macaddr_add(uint64_t macaddr, int inc)
 {
 	uint64_t temp, result;
 
-	temp = ((macaddr >> 40) & 0xffL) |
-	       ((macaddr >> 24) & 0xff00L) |
-	       ((macaddr >> 8)  & 0xff0000L) |
-	       ((macaddr << 8)  & 0xff000000L) |
-	       ((macaddr << 24) & 0xff00000000L) |
-	       ((macaddr << 40) & 0xff0000000000L);
+	temp = macaddr_reverse(macaddr);
 	temp += inc;
-
-	result = ((temp >> 40) & 0xffL) |
-		 ((temp >> 24) & 0xff00L) |
-		 ((temp >> 8)  & 0xff0000L) |
-		 ((temp << 8)  & 0xff000000L) |
-		 ((temp << 24) & 0xff00000000L) |
-		 ((temp << 40) & 0xff0000000000L);
-	return result;
+	return macaddr_reverse(temp);
 }
 
 
