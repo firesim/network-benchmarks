@@ -13,7 +13,7 @@ char inflight[NPACKETS];
 
 static inline void process_loop(void)
 {
-        uint16_t counts, recv_req, recv_comp;
+        int counts, recv_req, recv_comp;
         static int req_id = 0, comp_id = 0;
 	int len;
 

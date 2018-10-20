@@ -24,7 +24,7 @@ static void fill_packet(
 
 static void process_loop(void)
 {
-	uint16_t counts, send_req, send_comp;
+	int counts, send_req, send_comp;
 	static int req_id = 0, comp_id = 0;
 
 	counts = nic_counts();
