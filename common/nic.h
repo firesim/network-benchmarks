@@ -7,14 +7,14 @@
 #define NIC_MACADDR (NIC_BASE + 24)
 
 #define NIC_COUNT_SEND_REQ 0
-#define NIC_COUNT_RECV_REQ 4
-#define NIC_COUNT_SEND_COMP 8
-#define NIC_COUNT_RECV_COMP 12
-#define NIC_COUNT_MASK 0xf
+#define NIC_COUNT_RECV_REQ 8
+#define NIC_COUNT_SEND_COMP 16
+#define NIC_COUNT_RECV_COMP 24
+#define NIC_COUNT_MASK 0xff
 
-static inline uint16_t nic_counts(void)
+static inline uint32_t nic_counts(void)
 {
-	return reg_read16(NIC_COUNTS);
+	return reg_read32(NIC_COUNTS);
 }
 
 static inline void nic_post_send(uint64_t addr, uint64_t len)

@@ -1,6 +1,6 @@
 #define PACKET_WORDS 180
 #define PACKET_BYTES (PACKET_WORDS * 8)
-#define MAX_OUTSTANDING 10
+#define MAX_OUTSTANDING 64
 #define ETHTYPE 0x1008L
 
 static inline uint64_t macaddr_reverse(uint64_t macaddr)
