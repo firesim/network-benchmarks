@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "common.h"
+#include "reduce.h"
 #include "mmio.h"
 #include "nic.h"
 
@@ -83,18 +83,16 @@ uint64_t recv_data_loop(uint64_t srcmac, long nbytes, long npackets)
 	recv_id = 0;
 
 	while (recv_id < npackets) {
-		int counts = nic_counts();
-		int send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
-		int recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
-		int pkts_left = npackets - recv_id;
-		int n = MAX_OUTSTANDING;
+		int send_req, recv_req;
 
-		if (n > send_req)
-			n = send_req;
-		if (n > recv_req)
-			n = recv_req;
-		if (n > pkts_left)
-			n = pkts_left;
+		int pkts_left = npackets - recv_id;
+		int n = (pkts_left < MAX_OUTSTANDING) ? pkts_left : MAX_OUTSTANDING;
+
+		do {
+			int counts = nic_counts();
+			send_req = (counts >> NIC_COUNT_SEND_REQ) & NIC_COUNT_MASK;
+			recv_req = (counts >> NIC_COUNT_RECV_REQ) & NIC_COUNT_MASK;
+		} while (send_req < n && recv_req < n);
 
 		bytes_left -= recv_packets(srcmac, n);
 	}

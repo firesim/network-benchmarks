@@ -5,7 +5,7 @@ LDFLAGS=-T ../common/link.ld -static -nostdlib -nostartfiles -lgcc
 
 all: averager.riscv compute.riscv
 
-%.riscv: %.o common.o crt.o syscalls.o
+%.riscv: %.o reduce.o crt.o syscalls.o
 	$(CC) $^ $(LDFLAGS) -o $@
 
 %.o: %.c
@@ -15,6 +15,9 @@ crt.o: ../common/crt.S
 	$(CC) $(CFLAGS) -c $< -o $@
 
 syscalls.o: ../common/syscalls.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+reduce.o: ../common/reduce.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:

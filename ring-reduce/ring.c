@@ -5,7 +5,7 @@
 #include "mmio.h"
 #include "nic.h"
 #include "encoding.h"
-#include "common.h"
+#include "reduce.h"
 
 #define NPACKETS ((NBYTES - 1) / PACKET_BYTES + 1)
 #define PAUSE_CYCLES (PAUSE_MS * 3200000L)

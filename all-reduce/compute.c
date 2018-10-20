@@ -5,7 +5,7 @@
 #include "mmio.h"
 #include "nic.h"
 #include "encoding.h"
-#include "common.h"
+#include "reduce.h"
 
 //#define NBYTES (2 * 1024L * 1024L * 1024L)
 #define NPACKETS ((NBYTES - 1) / PACKET_BYTES + 1)
@@ -21,13 +21,17 @@ int main(void)
 	printf("start test\n");
 
 	for (int i = 0; i < NROUNDS; i++) {
-		dstmac = recv_data_loop(srcmac, NBYTES, NPACKETS);
+		printf("Round %d\n", i);
+		recv_data_loop(srcmac, NBYTES, NPACKETS);
 
 		end_cycle = rdcycle() + PAUSE_CYCLES;
 		while (rdcycle() < end_cycle) {}
 
+		dstmac = recv_data_loop(srcmac, 24, 1);
 		send_data_loop(srcmac, dstmac, NBYTES);
 	}
+
+	recv_data_loop(srcmac, 24, 1);
 
 	printf("finished\n");
 
