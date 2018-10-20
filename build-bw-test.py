@@ -25,7 +25,12 @@ def mac_to_hex(macaddr):
 def ltoa(i):
     return str(i) + "L"
 
-MAC_TEMPLATE = "00:12:6D:00:00:{:02x}"
+def gen_mac(idx):
+    offset = 2 + idx
+    rbyte = (2 + idx) & 0xff
+    lbyte = ((2 + idx) >> 8) & 0xff
+
+    return "00:12:6D:00:{:02x}:{:02x}".format(lbyte, rbyte)
 
 def main():
     if os.path.isdir("testbuild"):
@@ -43,7 +48,7 @@ def main():
             "-s", "--cycle-step", type=int, default=100000000)
     args = parser.parse_args()
 
-    all_macs = [MAC_TEMPLATE.format(i) for i in range(2, 2 + 2 * args.num_pairs)]
+    all_macs = [gen_mac(i) for i in range(0, 2 * args.num_pairs)]
     server_macs = all_macs[args.num_pairs:]
     client_macs = all_macs[:args.num_pairs]
 
@@ -62,7 +67,7 @@ def main():
         server_mac = all_macs[server_id]
         SERVER_BASE = "testbuild/bw-test-server-{}".format(server_id)
         CLIENT_BASE = "testbuild/bw-test-client-{}".format(client_id)
-        print("Client {} to Server {}".format(client_id, server_id))
+        print("Client {} to Server {}".format(client_mac, server_mac))
         compile(
             "bw-test/server.c",
             SERVER_BASE + ".o",
