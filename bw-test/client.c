@@ -78,7 +78,7 @@ int main(void)
 		cycle = rdcycle();
 	} while (cycle < START_CYCLE);
 
-	printf("Start bandwidth test @ %lu\n", cycle);
+	//printf("Start bandwidth test @ %lu\n", cycle);
 
 	do {
             process_loop();

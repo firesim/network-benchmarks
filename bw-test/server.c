@@ -49,7 +49,7 @@ int main(void)
 	memset(inflight, 0, NPACKETS);
 
 	cycle = rdcycle();
-	printf("start @ %lu\n", cycle);
+	//printf("start @ %lu\n", cycle);
 
 	do {
                 process_loop();
