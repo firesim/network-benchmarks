@@ -18,8 +18,8 @@ static inline void process_loop(void)
 	int len;
 
 	counts = nic_counts();
-	recv_req  = (counts >> NIC_COUNT_RECV_REQ)  & 0xf;
-        recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xf;
+	recv_req  = (counts >> NIC_COUNT_RECV_REQ)  & NIC_COUNT_MASK;
+        recv_comp = (counts >> NIC_COUNT_RECV_COMP) & NIC_COUNT_MASK;
 
         for (int i = 0; i < recv_comp; i++) {
 		len = nic_complete_recv();
@@ -47,6 +47,9 @@ int main(void)
 	uint64_t cycle;
 
 	memset(inflight, 0, NPACKETS);
+
+	cycle = rdcycle();
+	printf("start @ %lu\n", cycle);
 
 	do {
                 process_loop();
