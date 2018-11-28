@@ -51,7 +51,7 @@ static void process_loop(void)
 static void finish_comp(void)
 {
 	int counts = nic_counts();
-	int comp = (counts >> NIC_COUNT_SEND_COMP) & 0xff;
+	int comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 
 	for (int i = 0; i < comp; i++) {
 		nic_complete_send();
@@ -78,7 +78,7 @@ int main(void)
 		cycle = rdcycle();
 	} while (cycle < START_CYCLE);
 
-	printf("Start bandwidth test @ %lu\n", cycle);
+	//printf("Start bandwidth test @ %lu\n", cycle);
 
 	do {
             process_loop();

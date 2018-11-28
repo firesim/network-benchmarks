@@ -10,6 +10,7 @@
 #define NIC_COUNT_RECV_REQ 8
 #define NIC_COUNT_SEND_COMP 16
 #define NIC_COUNT_RECV_COMP 24
+#define NIC_COUNT_MASK 0xff
 
 static inline uint32_t nic_counts(void)
 {
