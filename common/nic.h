@@ -12,6 +12,8 @@
 #define NIC_COUNT_RECV_COMP 24
 #define NIC_COUNT_MASK 0xff
 
+#define BROADCAST_MAC 0xFFFFFFFFFFFFL
+
 static inline uint32_t nic_counts(void)
 {
 	return reg_read32(NIC_COUNTS);

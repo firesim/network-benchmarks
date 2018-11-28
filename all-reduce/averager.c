@@ -11,12 +11,7 @@
 
 static void distribute_data(uint64_t srcmac)
 {
-	uint64_t dstmac;
-
-	for (int i = 0; i < NCOMPUTE; i++) {
-		dstmac = macaddr_add(srcmac, i+1);
-		send_data_loop(srcmac, dstmac, NBYTES);
-	}
+	send_data_loop(srcmac, BROADCAST_MAC, NBYTES);
 }
 
 static void collect_data(uint64_t srcmac)
@@ -26,7 +21,7 @@ static void collect_data(uint64_t srcmac)
 	for (int i = 0; i < NCOMPUTE; i++) {
 		dstmac = macaddr_add(srcmac, i+1);
 		send_data_loop(srcmac, dstmac, 24);
-		recv_data_loop(srcmac, NBYTES);
+		recv_data_loop(srcmac, NBYTES, 1);
 	}
 }
 

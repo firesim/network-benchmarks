@@ -12,11 +12,11 @@
 static inline void even_reduce(uint64_t srcmac, uint64_t leftmac, uint64_t rightmac)
 {
 	for (int i = 0; i < NCOMPUTE; i++) {
-		recv_data_loop(srcmac, 24);
+		recv_data_loop(srcmac, 24, 1);
 		send_data_loop(srcmac, rightmac, NBYTES);
 
 		send_data_loop(srcmac, leftmac, 24);
-		recv_data_loop(srcmac, NBYTES);
+		recv_data_loop(srcmac, NBYTES, 1);
 	}
 }
 
@@ -24,9 +24,9 @@ static inline void odd_reduce(uint64_t srcmac, uint64_t leftmac, uint64_t rightm
 {
 	for (int i = 0; i < NCOMPUTE; i++) {
 		send_data_loop(srcmac, leftmac, 24);
-		recv_data_loop(srcmac, NBYTES);
+		recv_data_loop(srcmac, NBYTES, 1);
 
-		recv_data_loop(srcmac, 24);
+		recv_data_loop(srcmac, 24, 1);
 		send_data_loop(srcmac, rightmac, NBYTES);
 	}
 }

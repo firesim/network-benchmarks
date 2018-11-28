@@ -10,6 +10,17 @@ static long send_id, recv_id;
 static int noutstanding;
 static int inflight[MAX_OUTSTANDING];
 
+static int complete_recv_noack(int n)
+{
+	long nbytes = 0;
+
+	for (int i = 0; i < n; i++)
+		nbytes += nic_complete_recv();
+	noutstanding -= n;
+
+	return nbytes;
+}
+
 static int send_acks(uint64_t srcmac, int n)
 {
 	long nbytes = 0;
@@ -80,7 +91,7 @@ long send_packets(int npackets, long bytes_left)
 	return bytes_left;
 }
 
-uint64_t recv_data_loop(uint64_t srcmac, long nbytes)
+uint64_t recv_data_loop(uint64_t srcmac, long nbytes, int ack)
 {
 	long bytes_left = nbytes;
 	long npackets = (nbytes - 1) / PACKET_BYTES + 1;
@@ -106,8 +117,12 @@ uint64_t recv_data_loop(uint64_t srcmac, long nbytes)
 		if (can_post < to_post)
 			to_post = can_post;
 
-		bytes_left -= send_acks(srcmac, to_ack);
-		complete_acks(send_comp);
+		if (ack) {
+			bytes_left -= send_acks(srcmac, to_ack);
+			complete_acks(send_comp);
+		} else {
+			bytes_left -= complete_recv_noack(to_ack);
+		}
 		recv_packets(srcmac, to_post);
 	}
 
@@ -118,8 +133,12 @@ uint64_t recv_data_loop(uint64_t srcmac, long nbytes)
 		int send_comp = (counts >> NIC_COUNT_SEND_COMP) & NIC_COUNT_MASK;
 		int to_ack = (send_req < recv_comp) ? send_req : recv_comp;
 
-		bytes_left -= send_acks(srcmac, to_ack);
-		complete_acks(send_comp);
+		if (ack) {
+			bytes_left -= send_acks(srcmac, to_ack);
+			complete_acks(send_comp);
+		} else {
+			bytes_left -= complete_recv_noack(to_ack);
+		}
 	}
 
 	j = (recv_id - 1) % MAX_OUTSTANDING;

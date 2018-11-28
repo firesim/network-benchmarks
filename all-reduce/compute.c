@@ -12,24 +12,27 @@
 
 int main(void)
 {
-	uint64_t srcmac, dstmac;
+	uint64_t srcmac, dstmac, revmac;
 	long end_cycle;
+	int is_last;
 
 	srcmac = nic_macaddr();
+	revmac = macaddr_reverse(srcmac);
+	is_last = (revmac & 0xffff) == (2 + NCOMPUTE);
 
 	printf("start test\n");
 
 	for (int i = 0; i < NROUNDS; i++) {
-		recv_data_loop(srcmac, NBYTES);
+		recv_data_loop(srcmac, NBYTES, is_last);
 
 		end_cycle = rdcycle() + PAUSE_CYCLES;
 		while (rdcycle() < end_cycle) {}
 
-		dstmac = recv_data_loop(srcmac, 24);
+		dstmac = recv_data_loop(srcmac, 24, 1);
 		send_data_loop(srcmac, dstmac, NBYTES);
 	}
 
-	recv_data_loop(srcmac, 24);
+	recv_data_loop(srcmac, 24, 1);
 
 	printf("finished\n");
 
