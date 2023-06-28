@@ -5,17 +5,11 @@ import shutil
 import random
 
 CC=["riscv64-unknown-elf-gcc"]
-CFLAGS=["-mcmodel=medany", "-Wall", "-O2", "-fno-common", "-fno-builtin-printf", "-Icommon/"]
-LDFLAGS=["-T", "common/link.ld", "-static", "-nostdlib", "-nostartfiles", "-lgcc"]
+CFLAGS=["-static", "-specs=htif_nano.specs", "-Wall", "-O2", "-fno-common", "-fno-builtin-printf", "-Icommon/"]
 
 def compile(source_name, target_name, macros):
     macro_flags = ["-D{}={}".format(name, macros[name]) for name in macros]
-    command = CC + CFLAGS + macro_flags + ["-c", source_name, "-o", target_name]
-    print(' '.join(command))
-    return subprocess.call(command)
-
-def link(source_names, target_name):
-    command = CC + LDFLAGS + source_names + ["-o", target_name]
+    command = CC + CFLAGS + macro_flags + ["-o", target_name, source_name]
     print(' '.join(command))
     return subprocess.call(command)
 
@@ -47,9 +41,6 @@ def main():
     server_macs = all_macs[args.num_pairs:]
     client_macs = all_macs[:args.num_pairs]
 
-    compile("common/crt.S", "testbuild/crt.o", {})
-    compile("common/syscalls.c", "testbuild/syscalls.o", {})
-
     end_cycle = (args.num_pairs + 1) * args.cycle_step
     server_wait = args.num_pairs * args.cycle_step
     client_wait = server_wait + 2 * args.cycle_step
@@ -65,23 +56,20 @@ def main():
         print("Client {} to Server {}".format(client_id, server_id))
         compile(
             "bw-test/server.c",
-            SERVER_BASE + ".o",
+            SERVER_BASE + ".riscv",
             {"CLIENT_MACADDR": mac_to_hex(client_mac),
              "NPACKETS": args.num_packets,
              "PACKET_WORDS": args.packet_words,
              "END_CYCLE": ltoa(end_cycle + server_wait)})
         compile(
             "bw-test/client.c",
-            CLIENT_BASE + ".o",
+            CLIENT_BASE + ".riscv",
             {"SERVER_MACADDR": mac_to_hex(server_mac),
              "NPACKETS": args.num_packets,
              "PACKET_WORDS": args.packet_words,
              "START_CYCLE": ltoa((client_id + 1) * args.cycle_step),
              "END_CYCLE": ltoa(end_cycle),
              "WAIT_CYCLES": ltoa(client_wait)})
-
-        link([SERVER_BASE + ".o", "testbuild/crt.o", "testbuild/syscalls.o"], SERVER_BASE + ".riscv")
-        link([CLIENT_BASE + ".o", "testbuild/crt.o", "testbuild/syscalls.o"], CLIENT_BASE + ".riscv")
 
 if __name__ == "__main__":
     main()
