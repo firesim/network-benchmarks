@@ -46,6 +46,10 @@ int main(void)
 {
 	uint64_t cycle;
 
+/* #define DEBUG */
+#ifdef DEBUG
+  printf("server starting memset\n");
+#endif
 	memset(inflight, 0, NPACKETS);
 
 	do {

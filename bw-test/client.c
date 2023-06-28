@@ -61,18 +61,33 @@ static void finish_comp(void)
 
 int main(void)
 {
+/* #define DEBUG */
+
+#ifdef DEBUG
+  printf("starting client\n");
+#endif
+
 	uint64_t srcmac = nic_macaddr();
 	uint64_t dstmac = SERVER_MACADDR;
 	uint64_t cycle;
 
 	srandom(0xCFF32987);
 
+#ifdef DEBUG
+  printf("client starting memset\n");
+#endif
 	memset(inflight, 0, NPACKETS);
+
+#ifdef DEBUG
+  printf("client starting fill_packet\n");
+#endif
 	for (int i = 0; i < NPACKETS; i++) {
 		fill_packet(out_packets[i], srcmac, dstmac, i);
 	}
 
 	asm volatile ("fence");
+
+  printf("fence done\n");
 
 	do {
 		cycle = rdcycle();
