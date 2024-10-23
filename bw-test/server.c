@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "mmio.h"
 #include "nic.h"
@@ -13,15 +14,15 @@ char inflight[NPACKETS];
 
 static inline void process_loop(void)
 {
-        uint32_t counts, recv_req, recv_comp;
-        static int req_id = 0, comp_id = 0;
+	uint32_t counts, recv_req, recv_comp;
+	static int req_id = 0, comp_id = 0;
 	int len;
 
 	counts = nic_counts();
 	recv_req  = (counts >> NIC_COUNT_RECV_REQ)  & 0xff;
-        recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xff;
+	recv_comp = (counts >> NIC_COUNT_RECV_COMP) & 0xff;
 
-        for (int i = 0; i < recv_comp; i++) {
+	for (int i = 0; i < recv_comp; i++) {
 		len = nic_complete_recv();
 		if (len != PACKET_WORDS * sizeof(uint64_t)) {
 			printf("Incorrectly sized packet\n");
@@ -30,7 +31,7 @@ static inline void process_loop(void)
 		inflight[comp_id] = 0;
 		comp_id = (comp_id + 1) % NPACKETS;
 		total_comp++;
-        }
+	}
 
 	for (int i = 0; i < recv_req; i++) {
 		if (inflight[req_id])
@@ -44,21 +45,28 @@ static inline void process_loop(void)
 
 int main(void)
 {
-	uint64_t cycle;
-
-/* #define DEBUG */
+#define DEBUG
 #ifdef DEBUG
-  printf("server starting memset\n");
+	printf("server starting memset\n");
 #endif
 	memset(inflight, 0, NPACKETS);
 
+	uint64_t srvmac = nic_macaddr();
+#ifdef DEBUG
+	printf("srvmac: (from hw) 0x%lx\n", srvmac);
+#endif
+	assert(srvmac == SERVER_MACADDR);
+
+	uint64_t scycle, ecycle;
+	scycle = rdcycle();
+	printf("Started server @ %lu\n", scycle);
+
 	do {
-                process_loop();
-		cycle = rdcycle();
-	} while (cycle < END_CYCLE);
+		process_loop();
+		ecycle = rdcycle();
+	} while ((ecycle - scycle) < WAIT_CYCLE);
 
-	printf("cycles: %lu, completed: %d\n",
-			cycle, total_comp);
+	printf("cycles: %lu, completed: %d\n", (ecycle - scycle), total_comp);
 
-        return 0;
+	return 0;
 }

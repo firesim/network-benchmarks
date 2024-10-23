@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <assert.h>
 
 #include "mmio.h"
 #include "nic.h"
@@ -22,7 +23,7 @@ static void fill_packet(
 		packet[i] = random();
 }
 
-static void process_loop(void)
+static inline void process_loop(void)
 {
 	uint32_t counts, send_req, send_comp;
 	static int req_id = 0, comp_id = 0;
@@ -61,25 +62,31 @@ static void finish_comp(void)
 
 int main(void)
 {
-/* #define DEBUG */
+#define DEBUG
 
 #ifdef DEBUG
-  printf("starting client\n");
+	printf("starting client\n");
 #endif
 
 	uint64_t srcmac = nic_macaddr();
 	uint64_t dstmac = SERVER_MACADDR;
-	uint64_t cycle;
+	uint64_t scycle, ecycle;
+
+#ifdef DEBUG
+	printf("srcmac (climac): 0x%lx\n", srcmac);
+	printf("dstmac (srvmac): (from sw) 0x%lx\n", dstmac);
+#endif
+	assert(srcmac == CLIENT_MACADDR);
 
 	srandom(0xCFF32987);
 
 #ifdef DEBUG
-  printf("client starting memset\n");
+	printf("client starting memset\n");
 #endif
 	memset(inflight, 0, NPACKETS);
 
 #ifdef DEBUG
-  printf("client starting fill_packet\n");
+	printf("client starting fill_packet\n");
 #endif
 	for (int i = 0; i < NPACKETS; i++) {
 		fill_packet(out_packets[i], srcmac, dstmac, i);
@@ -87,28 +94,32 @@ int main(void)
 
 	asm volatile ("fence");
 
-  printf("fence done\n");
+	printf("fence done\n");
+
+	// wait
+	scycle = rdcycle();
+	do {
+		ecycle = rdcycle();
+	} while ((ecycle - scycle) < START_WAIT_CYCLE);
+
+	scycle = ecycle;
+	printf("Start bandwidth test @ %lu\n", scycle);
 
 	do {
-		cycle = rdcycle();
-	} while (cycle < START_CYCLE);
+		process_loop();
+		ecycle = rdcycle();
+	} while ((ecycle - scycle) < WAIT_CYCLE);
 
-	printf("Start bandwidth test @ %lu\n", cycle);
-
-	do {
-            process_loop();
-	    cycle = rdcycle();
-	} while (cycle < END_CYCLE);
-
-	printf("cycles: %lu, completed: %d\n",
-			END_CYCLE - START_CYCLE, total_comp);
+	printf("cycles: %lu, completed: %d\n", ecycle - scycle, total_comp);
 
 	while (total_comp < total_req)
 		finish_comp();
 
+	// wait
+	scycle = rdcycle();
 	do {
-	    cycle = rdcycle();
-	} while (cycle < (END_CYCLE + WAIT_CYCLES));
+		ecycle = rdcycle();
+	} while ((ecycle - scycle) < END_WAIT_CYCLE);
 
 	return 0;
 }
